@@ -33,6 +33,7 @@ from io import BytesIO
 
 import cwltool.main
 import pkg_resources
+from cwltool.context import LoadingContext
 
 from reana_workflow_engine_cwl.__init__ import __version__
 from reana_workflow_engine_cwl.config import SHARED_VOLUME_PATH
@@ -43,6 +44,8 @@ log = logging.getLogger("reana-workflow-engine-cwl")
 log.setLevel(logging.INFO)
 console = logging.StreamHandler()
 log.addHandler(console)
+
+
 
 
 def versionstring():
@@ -122,7 +125,8 @@ def main(workflow_uuid, workflow_spec,
     result = cwltool.main.main(
         args=parsed_args,
         executor=pipeline.executor,
-        makeTool=pipeline.make_tool,
+        loadingContext=LoadingContext(
+            {'construct_tool_object': pipeline.make_tool}),
         versionfunc=versionstring,
         logger_handler=db_log_writer,
         stdout=f

@@ -69,8 +69,8 @@ setup_requires = [
 ]
 
 install_requires = [
-    'cwltool==1.0.20180326152342',
-    'schema-salad==2.6.20180214144209',
+    'cwltool==1.0.20180906112546',
+    'schema-salad==2.7.20180905124720',
     'kombu==4.1.0',
     'celery==4.1.0',
     'zmq',

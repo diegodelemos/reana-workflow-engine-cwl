@@ -34,13 +34,12 @@ import time
 from pprint import pformat
 
 import shellescape
-from cwltool.draft2tool import CommandLineTool
+from cwltool.command_line_tool import CommandLineTool
 from cwltool.errors import WorkflowException
 from cwltool.job import (needs_shell_quoting_re, relink_initialworkdir,
                          stageFiles)
 from cwltool.pathmapper import ensure_writable
-from cwltool.utils import get_feature
-from cwltool.workflow import defaultMakeTool
+from cwltool.workflow import default_make_tool
 
 from reana_workflow_engine_cwl.httpclient import \
     ReanaJobControllerHTTPClient as HttpClient
@@ -66,28 +65,29 @@ class ReanaPipeline(Pipeline):
         self.working_dir = working_dir
         self.publisher = publisher
 
-    def make_exec_tool(self, spec, **kwargs):
+    def make_exec_tool(self, spec, loadingContext, **kwargs):
         """Make execution tool."""
-        return ReanaPipelineTool(self.workflow_uuid, spec, self,
-                                 working_dir=self.working_dir,
+        return ReanaPipelineTool(self.workflow_uuid, spec, loadingContext,
+                                 self, working_dir=self.working_dir,
                                  publisher=self.publisher,
                                  **kwargs)
 
-    def make_tool(self, spec, **kwargs):
+    def make_tool(self, spec, loadingContext, **kwargs):
         """Make tool."""
         if "class" in spec and spec["class"] == "CommandLineTool":
-            return self.make_exec_tool(spec, **kwargs)
+            return self.make_exec_tool(spec, loadingContext, **kwargs)
         else:
-            return defaultMakeTool(spec, **kwargs)
+            return default_make_tool(spec, loadingContext, **kwargs)
 
 
 class ReanaPipelineTool(CommandLineTool):
     """REANA Pipeline Tool class."""
 
-    def __init__(self, workflow_uuid, spec, pipeline,
+    def __init__(self, workflow_uuid, spec, loadingContext, pipeline,
                  working_dir, publisher, **kwargs):
         """Constructor."""
-        super(ReanaPipelineTool, self).__init__(spec, **kwargs)
+        super(ReanaPipelineTool, self).__init__(spec,
+                                                loadingContext, **kwargs)
         self.workflow_uuid = workflow_uuid
         self.spec = spec
         self.pipeline = pipeline
@@ -190,7 +190,7 @@ class ReanaPipelineJob(PipelineJob):
                         filepair[0], filepair[1])
 
         mounted_outdir = self.outdir
-        scr, _ = get_feature(self, "ShellCommandRequirement")
+        scr, _ = self.get_requirement("ShellCommandRequirement")
 
         shebang_lines = {"/bin/bash", "/bin/sh"}
         if scr or self.command_line[0] in shebang_lines:
@@ -247,7 +247,7 @@ class ReanaPipelineJob(PipelineJob):
         wf_space_cmd = requirements_command_line + wf_space_cmd
 
         docker_output_dir = None
-        docker_req, _ = get_feature(self, "DockerRequirement")
+        docker_req, _ = self.get_requirement("DockerRequirement")
         if docker_req:
             docker_output_dir = docker_req.get("dockerOutputDirectory", None)
         if docker_output_dir:

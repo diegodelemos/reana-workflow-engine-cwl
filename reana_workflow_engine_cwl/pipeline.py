@@ -45,7 +45,7 @@ class Pipeline(object):
         """Constructor."""
         self.threads = []
 
-    def executor(self, tool, job_order, **kwargs):
+    def executor(self, tool, job_order, runtimeContext, **kwargs):
         """Executor method."""
         final_output = []
         final_status = []
@@ -54,24 +54,25 @@ class Pipeline(object):
             final_status.append(processStatus)
             final_output.append(out)
 
-        if "basedir" not in kwargs:
-            raise WorkflowException("Must provide 'basedir' in kwargs")
+        if not runtimeContext.basedir:
+            raise WorkflowException('`runtimeContext` should contain a '
+                                    '`basedir`')
 
         output_dirs = set()
 
-        if kwargs.get("outdir"):
-            finaloutdir = os.path.abspath(kwargs.get("outdir"))
+        if runtimeContext.outdir:
+            finaloutdir = os.path.abspath(runtimeContext.outdir)
         else:
             finaloutdir = None
-        if kwargs.get("tmp_outdir_prefix"):
-            kwargs["outdir"] = tempfile.mkdtemp(
-                prefix=kwargs["tmp_outdir_prefix"]
+        if runtimeContext.tmp_outdir_prefix:
+            runtimeContext.outdir = tempfile.mkdtemp(
+                prefix=runtimeContext.tmp_outdir_prefix
             )
         else:
-            kwargs["outdir"] = tempfile.mkdtemp()
+            runtimeContext.outdir = tempfile.mkdtemp()
 
-        output_dirs.add(kwargs["outdir"])
-        kwargs["mutation_manager"] = MutationManager()
+        output_dirs.add(runtimeContext.outdir)
+        runtimeContext.mutation_manager = MutationManager()
 
         jobReqs = None
         if "cwl:requirements" in job_order:
@@ -83,30 +84,24 @@ class Pipeline(object):
             for req in jobReqs:
                 tool.requirements.append(req)
 
-        if kwargs.get("default_container"):
-            tool.requirements.insert(0, {
-                "class": "DockerRequirement",
-                "dockerPull": kwargs["default_container"]
-            })
-        else:
-            kwargs['default_container'] = 'frolvlad/alpine-bash'
-        kwargs['docker_outdir'] = os.path.join(
+        if not runtimeContext.default_container:
+            runtimeContext.default_container = 'frolvlad/alpine-bash'
+        runtimeContext.docker_outdir = os.path.join(
             self.working_dir, "cwl/docker_outdir")
-        kwargs['docker_tmpdir'] = os.path.join(
+        runtimeContext.docker_tmpdir = os.path.join(
             self.working_dir, "cwl/docker_tmpdir")
-        kwargs["docker_stagedir"] = os.path.join(
+        runtimeContext.docker_stagedir = os.path.join(
             self.working_dir, "cwl/docker_stagedir")
 
-        jobs = tool.job(job_order, output_callback, **kwargs)
+        jobs = tool.job(job_order, output_callback, runtimeContext)
         try:
             for runnable in jobs:
                 if runnable:
-                    builder = kwargs.get("builder", None)
-                    if builder is not None:
-                        runnable.builder = builder
+                    if runtimeContext.builder:
+                        runnable.builder = runtimeContext.builder
                     if runnable.outdir:
                         output_dirs.add(runnable.outdir)
-                    runnable.run(**kwargs)
+                    runnable.run(runtimeContext)
                 else:
                     # log.error(
                     #     "Workflow cannot make any more progress"
@@ -127,10 +122,10 @@ class Pipeline(object):
         if final_output and final_output[0] and finaloutdir:
             final_output[0] = relocateOutputs(
                 final_output[0], finaloutdir,
-                output_dirs, kwargs.get("move_outputs"),
-                kwargs["make_fs_access"](""))
+                output_dirs, runtimeContext.move_outputs,
+                runtimeContext.make_fs_access(""))
 
-        if kwargs.get("rm_tmpdir"):
+        if runtimeContext.rm_tmpdir:
             cleanIntermediate(output_dirs)
 
         if final_output and final_status:
