@@ -92,7 +92,6 @@ class Pipeline(object):
             self.working_dir, "cwl/docker_tmpdir")
         runtimeContext.docker_stagedir = os.path.join(
             self.working_dir, "cwl/docker_stagedir")
-
         jobs = tool.job(job_order, output_callback, runtimeContext)
         try:
             for runnable in jobs:
@@ -129,7 +128,7 @@ class Pipeline(object):
             cleanIntermediate(output_dirs)
 
         if final_output and final_status:
-            return (final_output[0], final_status[0])
+            return (str(final_output[0]), str(final_status[0]))
         else:
             return (None, "permanentFail")
 
@@ -157,9 +156,11 @@ class Pipeline(object):
 class PipelineJob(JobBase):
     """Pipeline Job class."""
 
-    def __init__(self, spec, pipeline):
+    def __init__(self, builder, job, make_path_mapper, requirements, hints,
+                 jobname, spec, pipeline):
         """Constructor."""
-        super(JobBase, self).__init__()
+        super(PipelineJob, self).__init__(builder, job, make_path_mapper,
+                                          requirements, hints, jobname)
         self.spec = spec
         self.pipeline = pipeline
         self.running = False

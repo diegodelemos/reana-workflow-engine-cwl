@@ -32,6 +32,7 @@ import shutil
 import tempfile
 import time
 from pprint import pformat
+from functools import partial
 
 import shellescape
 from cwltool.command_line_tool import CommandLineTool
@@ -94,29 +95,36 @@ class ReanaPipelineTool(CommandLineTool):
         self.working_dir = working_dir
         self.publisher = publisher
 
-    def makeJobRunner(self, use_container=True, **kwargs):
+    def make_job_runner(self, runtimeContext):
         """Make job runner."""
         dockerReq, _ = self.get_requirement("DockerRequirement")
-        if not dockerReq and use_container:
-            if self.find_default_container:
-                default_container = self.find_default_container(self)
+        if not dockerReq and runtimeContext.use_container:
+            if runtimeContext.find_default_container:
+                default_container = \
+                    runtimeContext.find_default_container(self)
                 if default_container:
                     self.requirements.insert(0, {
                         "class": "DockerRequirement",
                         "dockerPull": default_container
                     })
 
-        return ReanaPipelineJob(self.workflow_uuid, self.spec,
-                                self.pipeline, self.working_dir,
-                                self.publisher)
+        return partial(ReanaPipelineJob, workflow_uuid=self.workflow_uuid,
+                       spec=self.spec, pipeline=self.pipeline,
+                       working_dir=self.working_dir, publisher=self.publisher)
 
 
 class ReanaPipelineJob(PipelineJob):
     """REANA Pipeline Job."""
 
-    def __init__(self, workflow_uuid, spec, pipeline, working_dir, publisher):
+    def __init__(self, builder, job, make_path_mapper, requirements, hints,
+                 jobname, workflow_uuid=None, spec=None, pipeline=None,
+                 working_dir=None, publisher=None):
         """Constructor."""
-        super(ReanaPipelineJob, self).__init__(spec, pipeline)
+        super(ReanaPipelineJob, self).__init__(builder, job, make_path_mapper,
+                                               requirements, hints,
+                                               jobname, spec, pipeline)
+        self.spec = spec
+        self.pipeline = pipeline
         self.workflow_uuid = workflow_uuid
         self.outputs = None
         self.working_dir = working_dir
